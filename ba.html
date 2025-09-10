@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Jogo da Memória – Açaí 🍇</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+* { box-sizing:border-box; margin:0; padding:0; }
+
+body, html {
+  width:100%; height:100%;
+  font-family:'Poppins',sans-serif;
+  background:#3c1053;
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:flex-start; padding:20px 0;
+}
+
+/* Intro */
+#intro {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  background:url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&q=80&auto=format&fit=crop&w=1600&h=900') center/cover no-repeat;
+  display:flex; flex-direction:column; justify-content:center; align-items:center;
+  color:#fff; text-align:center;
+}
+#intro h1 {
+  font-size:3em; text-shadow:2px 2px 8px rgba(0,0,0,0.8);
+  animation: zoomIn 1.5s ease-out;
+}
+#intro p { margin:10px 0 30px; font-size:1.2em; text-shadow:1px 1px 6px rgba(0,0,0,0.6);}
+#startBtn {
+  padding:15px 30px; font-size:1.2em; border:none; border-radius:12px;
+  background: linear-gradient(135deg,#ad5389,#3c1053);
+  color:#fff; cursor:pointer; box-shadow:0 0 15px rgba(253,216,53,0.7);
+  transition: all 0.3s ease;
+}
+#startBtn:hover { transform: scale(1.1); box-shadow:0 0 25px rgba(253,216,53,1); }
+@keyframes zoomIn { 0%{transform:scale(0.3);opacity:0;} 100%{transform:scale(1);opacity:1;} }
+
+/* HUD melhorado */
+#hud {
+  width:100%; max-width:900px; display:flex; justify-content:space-between; margin-bottom:20px;
+  gap:10px;
+}
+.hud-block {
+  flex:1; background: rgba(0,0,0,0.4); padding:10px; border-radius:12px;
+  text-align:center; color:#fff; font-weight:600; font-size:1.1em;
+  box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+#hud button { background:#ffde59; border:none; padding:5px 10px; border-radius:8px; cursor:pointer; font-weight:bold; }
+
+/* Game grid */
+#game { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); grid-gap:20px; width:100%; max-width:900px; }
+
+/* Card styles */
+.card { position:relative; width:100%; padding-top:70%; perspective:1200px; cursor:pointer; }
+.card-inner { position:absolute; top:0; left:0; width:100%; height:100%; border-radius:16px;
+  transition: transform 0.8s cubic-bezier(0.68,-0.55,0.27,1.55); transform-style: preserve-3d; }
+.card.revealed .card-inner { transform: rotateY(180deg); }
+.card-front, .card-back {
+  position:absolute; width:100%; height:100%; border-radius:16px; backface-visibility:hidden;
+  display:flex; justify-content:center; align-items:center; text-align:center; padding:10px;
+}
+.card-front { background:linear-gradient(135deg,#3c1053,#ad5389); border:3px solid #fdd835; font-size:30px; font-weight:600; color:#fff;
+  box-shadow:0 0 15px rgba(253,216,53,0.7); }
+.card-front:hover { box-shadow:0 0 25px rgba(253,216,53,1); transform:scale(1.05); }
+.card-back { background:#fff; transform:rotateY(180deg); color:#222; font-weight:bold; font-size:16px; overflow:hidden; }
+.card.hidden { visibility:hidden; }
+.shake { animation:shake 0.5s; }
+@keyframes shake { 0%{transform:translateX(0);}20%{transform:translateX(-8px);}40%{transform:translateX(8px);}60%{transform:translateX(-8px);}80%{transform:translateX(8px);}100%{transform:translateX(0);} }
+
+/* Win message */
+#winMessage { display:none; margin-top:30px; font-size:28px; font-weight:600; color:#ffde59; text-shadow:2px 2px 6px #000;
+  animation:pulse 1.5s infinite; text-align:center; }
+#explanations { display:none; margin-top:20px; max-width:800px; color:#fff; background:rgba(0,0,0,0.5); padding:15px; border-radius:12px; }
+#explanations h2 { margin-bottom:10px; color:#ffde59; }
+#explanations p { margin:5px 0; }
+@keyframes pulse { 0%,100%{transform:scale(1);}50%{transform:scale(1.1);} }
+</style>
+</head>
+<body>
+
+<!-- Intro Screen -->
+<div id="intro">
+  <h1>Jogo da Memória – Açaí 🍇</h1>
+  <p>Descubra curiosidades do açaí enquanto joga!</p>
+  <button id="startBtn">Começar Jogo</button>
+</div>
+
+<!-- HUD -->
+<div id="hud" style="display:none;">
+  <div class="hud-block" id="score">Pares encontrados: 0 / 2</div>
+  <div class="hud-block" id="timer">Tempo: 0s</div>
+  <button class="hud-block" id="restartBtn">🔄 Reiniciar</button>
+</div>
+
+<!-- Game Grid -->
+<div id="game"></div>
+<div id="winMessage">🎉 Você venceu o jogo do Açaí! 🍇</div>
+<div id="explanations">
+  <h2>Explicações rápidas:</h2>
+  <div id="expList"></div>
+</div>
+
+<script>
+// Pares de teste
+const pairs = [
+  { 
+    question:"Euterpe oleracea", 
+    answer:{value:"Açaí"},
+    explanation:"Euterpe oleracea é o nome científico do açaí, fruta típica da Amazônia."
+  },
+  { 
+    question:"Maior Produtor de açaí do Brasil", 
+    answer:{value:"Pará"},
+    explanation:"O Pará é responsável pela maior parte da produção de açaí no Brasil."
+  }
+];
+
+let cards=[];
+pairs.forEach((p,i)=>{
+  cards.push({id:i,text:p.question,type:'q'});
+  cards.push({id:i,content:p.answer,type:'a'});
+});
+cards.sort(()=>Math.random()-0.5);
+
+const game=document.getElementById("game");
+const scoreDiv=document.getElementById("score");
+const timerDiv=document.getElementById("timer");
+const winMessage=document.getElementById("winMessage");
+const expList=document.getElementById("expList");
+const explanations=document.getElementById("explanations");
+
+let firstCard=null, lock=false, score=0, time=0, timerInterval;
+
+// Render cards
+function render(){
+  game.innerHTML="";
+  cards.forEach(card=>{
+    const div=document.createElement("div");
+    div.className="card"; div.dataset.id=card.id; div.dataset.type=card.type;
+    let backHTML=card.type==="q"? `<div>${card.text}</div>` : `<div>${card.content.value}</div>`;
+    div.innerHTML=`<div class="card-inner"><div class="card-front">❓</div><div class="card-back">${backHTML}</div></div>`;
+    div.addEventListener("click",()=>flip(div,card));
+    game.appendChild(div);
+  });
+  updateHUD();
+}
+
+// Flip logic
+function flip(div,card){
+  if(lock || div.classList.contains("revealed")) return;
+  div.classList.add("revealed");
+
+  if(!firstCard){ firstCard={div,card}; }
+  else{
+    lock=true;
+    setTimeout(()=>{
+      if(firstCard.card.id===card.id && firstCard.card.type!==card.type){
+        firstCard.div.classList.add("hidden");
+        div.classList.add("hidden");
+        score++; updateHUD();
+      }else{
+        [firstCard.div,div].forEach(el=>{
+          el.classList.add("shake");
+          el.addEventListener("animationend",()=>el.classList.remove("shake"),{once:true});
+          el.classList.remove("revealed");
+        });
+      }
+      firstCard=null; lock=false; checkWin();
+    },900);
+  }
+}
+
+// Check win
+function checkWin(){ 
+  if(!document.querySelector(".card:not(.hidden)")) {
+    clearInterval(timerInterval); 
+    winMessage.style.display="block";
+    explanations.style.display="block";
+    expList.innerHTML="";
+    pairs.forEach(p=>{
+      expList.innerHTML += `<p><b>${p.question} → ${p.answer.value}</b>: ${p.explanation}</p>`;
+    });
+  }
+}
+
+// HUD update
+function updateHUD(){ scoreDiv.textContent=`Pares encontrados: ${score} / ${pairs.length}`; }
+
+// Timer
+function startTimer(){ time=0; timerDiv.textContent=`Tempo: 0s`; 
+  timerInterval=setInterval(()=>{time++; timerDiv.textContent=`Tempo: ${time}s`;},1000); 
+}
+
+// Restart
+document.getElementById("restartBtn").addEventListener("click",()=>{ resetGame(); });
+function resetGame(){
+  firstCard=null; lock=false; score=0; updateHUD(); clearInterval(timerInterval);
+  cards.sort(()=>Math.random()-0.5);
+  render(); startTimer(); winMessage.style.display="none"; explanations.style.display="none"; 
+}
+
+// Start button
+document.getElementById("startBtn").addEventListener("click",()=>{
+  document.getElementById("intro").style.display="none";
+  document.getElementById("hud").style.display="flex";
+  render(); startTimer();
+});
+</script>
+</body>
+</html>
